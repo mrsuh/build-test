@@ -5,7 +5,7 @@ on:
     branches: [ main ]    
 
 env:  
-  APP_NAME: MyApp
+  APP_NAME: test
   QT_VERSION: "6.8.3"
   QML_DIR: "."
 
@@ -44,10 +44,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          APP_PATH=$(ls -1d build/*.app 2>/dev/null | head -n1 || true)
-          if [[ -z "${APP_PATH:-}" ]]; then
-            APP_PATH="build/${APP_NAME}.app"
-          fi
+          APP_PATH="build/${APP_NAME}.app"
           if [[ ! -d "$APP_PATH" ]]; then
             echo "Couldn't find .app at $APP_PATH"
             ls -la build || true
@@ -73,7 +70,7 @@ jobs:
       - name: Upload artifact (DMG)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-macOS-arm64-DMG
+          name: ${{ env.APP_NAME }}-macOS-arm64-dmg
           path: ${{ env.DMG_PATH }}
           if-no-files-found: error
           retention-days: 14
@@ -81,7 +78,7 @@ jobs:
       - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-macOS-arm64-ZIP
+          name: ${{ env.APP_NAME }}-macOS-arm64-zip
           path: ${{ env.ZIP_PATH }}
           if-no-files-found: error
           retention-days: 14
