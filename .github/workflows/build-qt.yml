@@ -6,8 +6,7 @@ on:
 
 env:  
   APP_NAME: MyApp
-  QT_VERSION: "6.9.1"
-  QT_MODULES: "qtbase qtdeclarative qtquickcontrols2 qtmultimedia"  
+  QT_VERSION: "6.8.3"
   QML_DIR: "."
 
 jobs:
@@ -23,10 +22,11 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
           arch: clang_64
-          modules: ${{ env.QT_MODULES }}
           cache: true
-          aqtversion: "==3.*"
+          aqtversion: '==3.1.*'      
 
       # ---------- Build (CMake, arm64) ----------
       - name: Configure (CMake)
