@@ -1,77 +1,83 @@
-name: macOS Qt (arm64)
+name: Build Qt App (macOS arm64)
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
+    branches: [ main ]    
+
+env:  
+  APP_NAME: test
+  QT_VERSION: "6.8.3"
 
 jobs:
-  build:
-    runs-on: macos-14
-    env:
-      QT_VERSION: 6.7.2
-      QT_MODULE: clang_64
-      BUILD_DIR: build
-      APP_NAME: BuildTest
+  macos-arm64:
+    name: macOS arm64
+    runs-on: macos-14  # Apple Silicon runner
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Python + aqtinstall
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install aqtinstall
-
-      - name: Install CMake & Ninja
-        uses: lukka/get-cmake@v3.29.2
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Qt
-        run: |
-          aqt install-qt mac macos desktop $QT_VERSION $QT_MODULE -O $HOME/Qt
-          echo "QT_DIR=$HOME/Qt/$QT_VERSION/$QT_MODULE" >> $GITHUB_ENV
-          echo "$HOME/Qt/Tools/macos/bin" >> $GITHUB_PATH
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: clang_64
+          cache: true
+          aqtversion: '==3.1.*'      
 
-      - name: Configure
+      # ---------- Build (CMake, arm64) ----------
+      - name: Configure (CMake)
         run: |
-          cmake -S . -B $BUILD_DIR -G Ninja \
-            -DCMAKE_PREFIX_PATH="${{ env.QT_DIR }}" \
+          cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES=arm64
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_PREFIX_PATH="${Qt6_DIR}"
+      - name: Build (CMake)
+        run: cmake --build build --config Release --parallel --target all
 
-      - name: Build
-        run: cmake --build $BUILD_DIR --parallel
-
-      - name: Install (create .app in install dir)
+      # ---------- Package: .app + DMG ----------
+      - name: Package (DMG)
+        shell: bash
         run: |
-          cmake --install $BUILD_DIR --prefix "$PWD/package"
+          set -euo pipefail
 
-      - name: Find app
-        id: findapp
-        run: |
-          APP_PATH=$(find "package" -name "${APP_NAME}.app" -maxdepth 3 | head -n1)
-          if [ -z "$APP_PATH" ]; then echo "Bundle not found"; exit 1; fi
-          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
-          echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
+          APP_PATH="build/${APP_NAME}.app"
+          if [[ ! -d "$APP_PATH" ]]; then
+            echo "Couldn't find .app at $APP_PATH"
+            ls -la build || true
+            exit 1
+          fi
 
-      - name: macdeployqt
-        run: |
-          MACDEPLOY=$(find "${HOME}/Qt" -name macdeployqt -type f | head -n1)
-          "$MACDEPLOY" "${APP_PATH}" -verbose=2
+          echo "Using app bundle: $APP_PATH"
+          
+          macdeployqt "$APP_PATH" -always-overwrite -verbose=2
+          
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2
 
-      - name: Ad-hoc codesign
-        run: |
-          /usr/bin/codesign --force --deep -s - "${APP_PATH}"
-          /usr/bin/codesign --verify --deep --strict "${APP_PATH}" || true
+          DMG_PATH="$(dirname "$APP_PATH")/${APP_NAME}.dmg"
+          if [[ ! -f "$DMG_PATH" ]]; then
+            DMG_PATH=$(ls -1 "$(dirname "$APP_PATH")"/*.dmg | head -n1)
+          fi
+          
+          ditto -c -k --keepParent "$APP_PATH" "$(dirname "$APP_PATH")/${APP_NAME}-arm64.zip"
 
-      - name: Zip app
-        run: |
-          cd "$(dirname "${APP_PATH}")"
-          zip -r "${APP_NAME}-macos-arm64.zip" "$(basename "${APP_PATH}")"
-          echo "ZIP_PATH=$(pwd)/${APP_NAME}-macos-arm64.zip" >> $GITHUB_ENV
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+          echo "ZIP_PATH=$(dirname "$APP_PATH")/${APP_NAME}-arm64.zip" >> $GITHUB_ENV
 
-      - name: Upload artifact
+      - name: Upload artifact (DMG)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-macOS-arm64
+          name: ${{ env.APP_NAME }}-macOS-arm64-dmg
+          path: ${{ env.DMG_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload artifact (ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-macOS-arm64-zip
           path: ${{ env.ZIP_PATH }}
           if-no-files-found: error
+          retention-days: 14
