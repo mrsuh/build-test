@@ -1,10 +1,5 @@
-cmake_minimum_required(VERSION 3.16)
-
-project(test VERSION 0.1 LANGUAGES CXX)
-
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
+cmake_minimum_required(VERSION 3.21)
+project(BuildTest LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,37 +8,34 @@ if(APPLE)
   set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
-
+find_package(Qt6 6.5 COMPONENTS Widgets REQUIRED)
 qt_standard_project_setup()
 
-set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+set(SRCS
+    main.cpp
+    mainwindow.cpp
+    mainwindow.h
+    mainwindow.ui
 )
 
-qt_add_executable(test
-        MANUAL_FINALIZATION
-        MACOSX_BUNDLE
-        ${PROJECT_SOURCES}
+qt_add_executable(BuildTest
+    MANUAL_FINALIZATION
+    MACOSX_BUNDLE
+    ${SRCS}
 )
 
-target_link_libraries(test PRIVATE Qt6::Widgets)
+target_link_libraries(BuildTest PRIVATE Qt6::Widgets)
 
-set_target_properties(test PROPERTIES
+set_target_properties(BuildTest PROPERTIES
     OUTPUT_NAME "test"
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.example.test"
-    MACOSX_BUNDLE_BUNDLE_NAME "test"    
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
+    MACOSX_BUNDLE_BUNDLE_NAME "test"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/Info.plist"
 )
 
-install(TARGETS test
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+install(TARGETS BuildTest
+    BUNDLE  DESTINATION .
+    RUNTIME DESTINATION bin
 )
 
-qt_finalize_executable(test)
+qt_finalize_executable(BuildTest)
