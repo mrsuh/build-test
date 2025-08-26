@@ -28,6 +28,7 @@ target_link_libraries(test PRIVATE Qt6::Widgets)
 
 set_target_properties(test PROPERTIES
     OUTPUT_NAME "test"
+    MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.example.test"
     MACOSX_BUNDLE_BUNDLE_NAME "test"
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/Info.plist"
