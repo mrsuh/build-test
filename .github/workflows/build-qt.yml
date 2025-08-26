@@ -7,7 +7,6 @@ on:
 env:  
   APP_NAME: test
   QT_VERSION: "6.8.3"
-  QML_DIR: "."
 
 jobs:
   macos-arm64:
@@ -36,7 +35,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_PREFIX_PATH="${Qt6_DIR}"
       - name: Build (CMake)
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel --target all
 
       # ---------- Package: .app + DMG ----------
       - name: Package (DMG)
@@ -53,9 +52,9 @@ jobs:
 
           echo "Using app bundle: $APP_PATH"
           
-          macdeployqt "$APP_PATH" -always-overwrite -verbose=2 -qmldir="$QML_DIR"
+          macdeployqt "$APP_PATH" -always-overwrite -verbose=2
           
-          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2 -qmldir="$QML_DIR"
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2
 
           DMG_PATH="$(dirname "$APP_PATH")/${APP_NAME}.dmg"
           if [[ ! -f "$DMG_PATH" ]]; then
