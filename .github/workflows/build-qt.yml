@@ -115,7 +115,7 @@ jobs:
       - name: Configure (CMake)
         shell: pwsh
         run: |
-          set -ex pipefail
+          Set-PSDebug -Trace 1
           cmake -S . -B build `
             -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
@@ -129,7 +129,7 @@ jobs:
       - name: Package (windeployqt)
         shell: pwsh
         run: |
-          set -ex pipefail
+          Set-PSDebug -Trace 1
           $exe1 = "build/Release/${env:APP_NAME}.exe"
           $exe2 = "build/${env:APP_NAME}.exe"
           if (Test-Path $exe1) { $exe = $exe1 } elseif (Test-Path $exe2) { $exe = $exe2 } else {
