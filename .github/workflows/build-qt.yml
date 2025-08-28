@@ -21,27 +21,21 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'mac'
-          target: 'desktop'
-          arch: clang_64
           cache: true    
 
       - name: Configure (CMake)
         run: |          
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
-          env
           
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
 
       - name: Package (DMG)
         shell: bash
-        run: |
-          env
-          
+        run: |                
           set -euo pipefail
                   
           APP_PATH="build/${APP_NAME}.app"                
