@@ -1,174 +1,152 @@
-name: Build Qt App (Static macOS arm64 & Windows x64)
+name: Build Qt App (macOS arm64)
 
 on:
   push:
     branches: [ main ]    
 
-env:
+env:  
   APP_NAME: test
   QT_VERSION: "6.8.3"
-  QT_STATIC_KEY: "qtstatic-6.8.3-widgets-gui-opengl-desktop"
 
 jobs:
   macos-arm64:
-    name: macOS arm64 (static Qt)
-    runs-on: macos-14
+    name: macOS arm64
+    runs-on: macos-14  # Apple Silicon runner
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install tools
-        run: |
-          brew update
-          brew install ninja coreutils
-
-      - name: Restore static Qt from cache
-        id: cache-qt-macos
-        uses: actions/cache@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
         with:
-          path: |
-            $HOME/qtstatic/${{ env.QT_VERSION }}/macos-arm64
-          key: macos-arm64-${{ env.QT_STATIC_KEY }}
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: clang_64
+          cache: true
+          aqtversion: '==3.1.*'      
 
-      - name: Fetch Qt sources (qtbase only)
-        if: steps.cache-qt-macos.outputs.cache-hit != 'true'
+      # ---------- Build (CMake, arm64) ----------
+      - name: Configure (CMake)
         run: |
-          git clone --depth 1 --branch v${{ env.QT_VERSION }} https://code.qt.io/qt/qtbase.git
-
-      - name: Build & Install Qt static (qtbase)
-        if: steps.cache-qt-macos.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p $HOME/qtstatic/${{ env.QT_VERSION }}/macos-arm64
-          cmake -S qtbase -B qtbase-build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$HOME/qtstatic/${{ env.QT_VERSION }}/macos-arm64" \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DQT_BUILD_TESTS=OFF \
-            -DQT_BUILD_EXAMPLES=OFF \
-            -DQT_FEATURE_gui=ON \
-            -DQT_FEATURE_widgets=ON \
-            -DQT_FEATURE_opengl=desktop \
-            -DCMAKE_OSX_ARCHITECTURES=arm64
-          cmake --build qtbase-build --parallel
-          cmake --install qtbase-build
-
-      - name: Configure app (static)
-        run: |
-          cmake -S . -B build -G Ninja \
+          cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_PREFIX_PATH="$HOME/qtstatic/${{ env.QT_VERSION }}/macos-arm64/lib/cmake" \
-            -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
-      - name: Build app
-        run: cmake --build build --parallel --config Release
+            -DCMAKE_PREFIX_PATH="${Qt6_DIR}"
+      - name: Build (CMake)
+        run: cmake --build build --config Release --parallel --target all
 
-      - name: Package (.app -> zip)
+      # ---------- Package: .app + DMG ----------
+      - name: Package (DMG)
         shell: bash
         run: |
           set -euo pipefail
+
           APP_PATH="build/${APP_NAME}.app"
           if [[ ! -d "$APP_PATH" ]]; then
             echo "Couldn't find .app at $APP_PATH"
             ls -la build || true
             exit 1
           fi
-          ditto -c -k --keepParent "$APP_PATH" "build/${APP_NAME}-macos-arm64-static.zip"
-          echo "ZIP_PATH=build/${APP_NAME}-macOS-arm64-static.zip" >> $GITHUB_ENV
-          # унифицируем имя
-          mv "build/${APP_NAME}-macos-arm64-static.zip" "build/${APP_NAME}-macOS-arm64-static.zip"
+
+          echo "Using app bundle: $APP_PATH"
+          
+          macdeployqt "$APP_PATH" -always-overwrite -verbose=2
+          
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2
+
+          DMG_PATH="$(dirname "$APP_PATH")/${APP_NAME}.dmg"
+          if [[ ! -f "$DMG_PATH" ]]; then
+            DMG_PATH=$(ls -1 "$(dirname "$APP_PATH")"/*.dmg | head -n1)
+          fi
+          
+          ditto -c -k --keepParent "$APP_PATH" "$(dirname "$APP_PATH")/${APP_NAME}-arm64.zip"
+
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+          echo "ZIP_PATH=$(dirname "$APP_PATH")/${APP_NAME}-arm64.zip" >> $GITHUB_ENV
+
+      - name: Upload artifact (DMG)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-macOS-arm64-dmg
+          path: ${{ env.DMG_PATH }}
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-macOS-arm64-static
+          name: ${{ env.APP_NAME }}-macOS-arm64-zip
           path: ${{ env.ZIP_PATH }}
           if-no-files-found: error
           retention-days: 14
-
+  
   windows-x64:
-    name: Windows x64 (static Qt, MSVC)
+    name: Windows x64
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install tools
-        run: |
-          choco install ninja -y
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'   # MSVC 2022 x64
+          cache: true
+          aqtversion: '==3.1.*'
 
       - name: Setup MSVC (x64)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Restore static Qt from cache
-        id: cache-qt-win
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:\qtstatic\${{ env.QT_VERSION }}\msvc2022_64
-          key: windows-x64-${{ env.QT_STATIC_KEY }}
+      - name: Install CMake
+        uses: lukka/get-cmake@v3.29.2
 
-      - name: Fetch Qt sources (qtbase only)
-        if: steps.cache-qt-win.outputs.cache-hit != 'true'
+      # ---------- Build (CMake, Visual Studio generator) ----------
+      - name: Configure (CMake)
         shell: pwsh
         run: |
-          git clone --depth 1 --branch v${{ env.QT_VERSION }} https://code.qt.io/qt/qtbase.git
-
-      - name: Build & Install Qt static (qtbase)
-        if: steps.cache-qt-win.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "C:\qtstatic\${{ env.QT_VERSION }}\msvc2022_64" | Out-Null
-          cmake -S qtbase -B qtbase-build -G "Ninja" `
+          cmake -S . -B build `
+            -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_INSTALL_PREFIX="C:/qtstatic/${{ env.QT_VERSION }}/msvc2022_64" `
-            -DBUILD_SHARED_LIBS=OFF `
-            -DQT_BUILD_TESTS=OFF `
-            -DQT_BUILD_EXAMPLES=OFF `
-            -DQT_FEATURE_gui=ON `
-            -DQT_FEATURE_widgets=ON `
-            -DQT_FEATURE_opengl=desktop `
-            -DQT_FEATURE_static_runtime=ON `
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-          cmake --build qtbase-build --parallel
-          cmake --install qtbase-build
+            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR"
 
-      - name: Configure app (static)
+      - name: Build (CMake)
+        shell: pwsh
+        run: cmake --build build --config Release --parallel --target ALL_BUILD
+
+      # ---------- Package: windeployqt + ZIP ----------
+      - name: Package (windeployqt)
         shell: pwsh
         run: |
-          $prefix="C:/qtstatic/${{ env.QT_VERSION }}/msvc2022_64/lib/cmake"
-          cmake -S . -B build -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$prefix" `
-            -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON `
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-
-      - name: Build app
-        shell: pwsh
-        run: cmake --build build --parallel --config Release
-
-      - name: Package (EXE -> zip)
-        shell: pwsh
-        run: |
-          $exe1 = "build\\${env:APP_NAME}.exe"
-          $exe2 = "build\\Release\\${env:APP_NAME}.exe"
+          $exe1 = "build/Release/${env:APP_NAME}.exe"
+          $exe2 = "build/${env:APP_NAME}.exe"
           if (Test-Path $exe1) { $exe = $exe1 } elseif (Test-Path $exe2) { $exe = $exe2 } else {
-            Write-Host "Executable not found. Listing build dir:"
+            Write-Host "Executable not found. Listing build dir:" 
             Get-ChildItem -Recurse build | Select-Object FullName
             exit 1
           }
+          Write-Host "Using exe: $exe"
+
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item $exe dist/
-          Compress-Archive -Path dist\* -DestinationPath "${env:APP_NAME}-Windows-x64-static.zip" -Force
-          echo "ZIP_PATH=${env:APP_NAME}-Windows-x64-static.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+          # Qt dependencies + MSVC runtime
+          windeployqt.exe --release --compiler-runtime --dir dist "dist/${env:APP_NAME}.exe"
+        
+          Compress-Archive -Path dist\* -DestinationPath "${env:APP_NAME}-windows-x64.zip" -Force
+          echo "ZIP_PATH=${env:APP_NAME}-windows-x64.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-Windows-x64-static
+          name: ${{ env.APP_NAME }}-Windows-x64-zip
           path: ${{ env.ZIP_PATH }}
           if-no-files-found: error
           retention-days: 14
