@@ -40,6 +40,14 @@ jobs:
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
 
+      - name: Verify app (arch & libs)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="build/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
+          lipo -archs "$BIN"
+          otool -L "$BIN" || true
+
       - name: Package (DMG)
         shell: bash
         run: |                
