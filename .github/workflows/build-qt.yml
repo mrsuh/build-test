@@ -19,13 +19,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install build deps (Qt & PoDoFo)
-        run: brew install cmake ninja python pkg-config fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
+        run: brew install ninja python pkg-config fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
 
       - name: Checkout dependency repo
         uses: actions/checkout@v4
         with:
           repository: qt/qtbase
           path: dependencies/qtbase
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
 
       - name: Build & Install qtbase
         run: |
@@ -49,6 +52,9 @@ jobs:
         with:
           repository: qt/qttools
           path: dependencies/qttools
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
 
       - name: Build & Install qttools
         run: |
