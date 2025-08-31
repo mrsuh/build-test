@@ -29,10 +29,15 @@ jobs:
       - name: Install podofo dependencies
         run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
 
+      - name: Checkout dependency repo
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo.git
+          path: podofo
+
       - name: Install podofo
         run: |
           env
-          git clone git@github.com:podofo/podofo.git
           cd podofo
           mkdir build
           cd build
