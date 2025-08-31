@@ -12,7 +12,7 @@ jobs:
   macos-arm64:
     name: macOS arm64
     runs-on: macos-14
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -52,7 +52,7 @@ jobs:
               -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
               -DFontconfig_INCLUDE_DIR="$(brew --prefix fontconfig)/include" \
               -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
-          cmake --build . --config Release --parallel
+          cmake --build . --config Release
           cmake --install . --prefix "${GITHUB_WORKSPACE}/dependencies/podofo/install"   
 
       - name: Configure (CMake)
