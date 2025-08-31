@@ -25,6 +25,7 @@ jobs:
           host: mac
           target: desktop
           arch: clang_64
+          cache: true
 
       - name: Configure (CMake)
         env:
@@ -35,6 +36,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};/opt/homebrew"
 
       - name: Build (CMake)
