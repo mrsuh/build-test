@@ -9,9 +9,44 @@
 #include <QHBoxLayout>
 #include <QFileInfo>
 
+#include <podofo/podofo.h>
 #include <cstdio>
 
 using namespace std;
+using namespace PoDoFo;
+
+
+void splitDocument(QString inputFilePath, QPlainTextEdit *logBox) {
+
+    auto fileInfo = new QFileInfo(inputFilePath);
+
+    logBox->appendPlainText("Handling...");
+    try {
+        PdfMemDocument src;
+        src.Load(inputFilePath.toStdString());
+
+        const unsigned pages = src.GetPages().GetCount();
+        for (unsigned i = 0; i < pages; ++i) {
+            PdfMemDocument dst;
+            dst.GetPages().AppendDocumentPages(src, i, 1);
+            auto outputFilePath = QString::asprintf(
+                    "%s/%s%03u.pdf",
+                    fileInfo->absolutePath().toUtf8().constData(),
+                    fileInfo->completeBaseName().toUtf8().constData(),
+                    i + 1
+            );
+
+            dst.Save(outputFilePath.toStdString());
+
+            logBox->appendPlainText("Output file: " + outputFilePath);
+        }
+    } catch (const std::exception& e) {
+        logBox->appendPlainText("Error: " + QString(e.what()));
+        return;
+    }
+
+    logBox->appendPlainText("Done!");
+}
 
 int main(int argc, char *argv[])
 {
@@ -50,6 +85,7 @@ int main(int argc, char *argv[])
         );
         if (!path.isEmpty()) {
             logBox->appendPlainText("Chosen file: " + QDir::toNativeSeparators(path));
+            splitDocument(path, logBox);
         }
     });
 

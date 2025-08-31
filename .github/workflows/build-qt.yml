@@ -27,6 +27,32 @@ jobs:
           arch: clang_64
           cache: true
 
+      - name: Install podofo dependencies
+        run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
+
+      - name: Checkout dependency repo
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo
+          path: dependencies/podofo
+
+      - name: Install podofo
+        run: |
+          env
+          set -euo pipefail
+          cd dependencies/podofo
+          mkdir build
+          cd build
+          cmake .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
+              -DCMAKE_FIND_FRAMEWORK=NEVER \
+              -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+              -DFontconfig_INCLUDE_DIR="$(brew --prefix fontconfig)/include" \
+              -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+          cmake --build . --config Release
+          cmake --install . --prefix "${GITHUB_WORKSPACE}/dependencies/podofo/install"             
+
       - name: Configure (CMake)
         env:
           HOMEBREW_PREFIX: /opt/homebrew
@@ -37,7 +63,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
-            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};/opt/homebrew"
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};/opt/homebrew;${GITHUB_WORKSPACE}/dependencies/podofo/install"
 
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
@@ -57,25 +83,30 @@ jobs:
                   
           APP_PATH="build/${APP_NAME}.app"                
           
-          macdeployqt "$APP_PATH" -always-overwrite -verbose=2
-                  
-          codesign --remove-signature "$APP_PATH" || true
-          for f in "$APP_PATH"/Contents/Frameworks/*.framework/Versions/*/*; do
-            if file "$f" | grep -q 'Mach-O'; then
-            codesign --remove-signature "$f" || true
-          fi
-          done
+          macdeployqt "$APP_PATH" -always-overwrite
           
-          find "$APP_PATH/Contents/PlugIns" -type f -name "*.dylib" -exec codesign --remove-signature {} \; 2>/dev/null || true
-          find "$APP_PATH/Contents/Frameworks" -type f -name "*.dylib" -exec codesign --remove-signature {} \; 2>/dev/null || true
-        
-          xattr -dr com.apple.quarantine "$APP_PATH" || true
+          brew install dylibbundler
+          
+          BIN="$APP_PATH/Contents/MacOS/${APP_NAME}"
+          FRAMEWORKS="$APP_PATH/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"                
+          
+          dylibbundler -od -b -x "$BIN" -d "$FRAMEWORKS" -p @executable_path/../Frameworks \
+              -s "${GITHUB_WORKSPACE}/dependencies/podofo/install/lib" \
+              -s "$(brew --prefix)/lib" \
+              -s "$(brew --prefix fontconfig)/lib" \
+              -s "$(brew --prefix freetype)/lib" \
+              -s "$(brew --prefix libpng)/lib" \
+              -s "$(brew --prefix libtiff)/lib" \
+              -s "$(brew --prefix jpeg-turbo)/lib" \
+              -s "$(brew --prefix libxml2)/lib" \
+              -s "$(brew --prefix openssl@3)/lib"
+
           codesign --force --deep --options runtime \
             --entitlements entitlements.plist \
-            -s - "$APP_PATH"
-          codesign -vv --deep --strict "$APP_PATH" || true        
+            -s - "$APP_PATH"  
           
-          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2          
+          macdeployqt "$APP_PATH" -dmg -always-overwrite        
          
           echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV               
 
