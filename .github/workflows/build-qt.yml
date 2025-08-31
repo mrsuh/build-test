@@ -26,35 +26,6 @@ jobs:
           arch: clang_64
           cache: true
 
-      - name: Update Homebrew
-        run: brew update
-
-      - name: Install podofo dependencies
-        run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
-
-      - name: Checkout dependency repo
-        uses: actions/checkout@v4
-        with:
-          repository: podofo/podofo
-          path: dependencies/podofo
-
-      - name: Install podofo
-        run: |
-          env
-          set -euo pipefail
-          cd dependencies/podofo
-          mkdir build
-          cd build
-          cmake .. \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_OSX_ARCHITECTURES=arm64 \
-              -DCMAKE_FIND_FRAMEWORK=NEVER \
-              -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
-              -DFontconfig_INCLUDE_DIR="$(brew --prefix fontconfig)/include" \
-              -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
-          cmake --build . --config Release
-          cmake --install . --prefix "${GITHUB_WORKSPACE}/dependencies/podofo/install"   
-
       - name: Configure (CMake)
         run: |
           cmake -S . -B build \
