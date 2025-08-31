@@ -26,8 +26,12 @@ jobs:
       - name: Install podofo dependencies
         run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff cmake
 
+      - name: Update Homebrew
+        run: brew update
+
       - name: Install podofo
         run: |
+          env
           git clone git@github.com:podofo/podofo.git
           cd podofo
           mkdir build
