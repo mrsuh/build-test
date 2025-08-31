@@ -58,11 +58,9 @@ jobs:
           APP_PATH="build/${APP_NAME}.app"                
           
           macdeployqt "$APP_PATH" -always-overwrite -verbose=2
-          
-          
-
+                  
           codesign --remove-signature "$APP_PATH" || true
-          for f in "$APP"/Contents/Frameworks/*.framework/Versions/*/*; do
+          for f in "$APP_PATH"/Contents/Frameworks/*.framework/Versions/*/*; do
             if file "$f" | grep -q 'Mach-O'; then
             codesign --remove-signature "$f" || true
           fi
