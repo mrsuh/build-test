@@ -22,9 +22,9 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          host: mac
           target: desktop
           arch: clang_64
-#          cache: true
 
       - name: Configure (CMake)
         env:
