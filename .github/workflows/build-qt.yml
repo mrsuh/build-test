@@ -31,7 +31,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=12 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
 
       - name: Build (CMake)
