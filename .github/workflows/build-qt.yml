@@ -75,6 +75,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          
+          brew install dylibbundler
+          
           APP_PATH="build/${APP_NAME}.app"
           BIN="$APP_PATH/Contents/MacOS/${APP_NAME}"
           FRAMEWORKS="$APP_PATH/Contents/Frameworks"
@@ -84,7 +87,7 @@ jobs:
           
           macdeployqt "$APP_PATH" -always-overwrite -verbose=2
 
-      - name: Ad-hoc )codesign)
+      - name: Ad-hoc codesign
         shell: bash
         run: |
           APP_PATH="build/${APP_NAME}.app"
@@ -96,7 +99,7 @@ jobs:
         run: |
           set -euo pipefail
           APP_PATH="build/${APP_NAME}.app"
-          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=3
           echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV
 
       - name: Upload artifact (DMG)
