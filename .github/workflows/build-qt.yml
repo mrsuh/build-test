@@ -21,15 +21,28 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          cache: true    
+          cache: true
+
+      - name: Install podofo dependencies
+        run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff cmake
+
+      - name: Install podofo
+        run: |
+          git clone git@github.com:podofo/podofo.git
+          cd podofo
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=NEVER -DCMAKE_PREFIX_PATH=`brew --prefix` -DFontconfig_INCLUDE_DIR=`brew --prefix fontconfig`/include -DOPENSSL_ROOT_DIR=`brew --prefix openssl@3` ..
+          cmake --build . --config Release
+          cmake --install . --prefix ../install   
 
       - name: Configure (CMake)
-        run: |          
+        run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
-            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
-          
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};podofo/install"
+
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
 
@@ -54,76 +67,4 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   
-  windows-x64:
-    name: Windows x64
-    runs-on: windows-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'   # MSVC 2022 x64
-          cache: true
-          aqtversion: '==3.1.*'
-          
-      - name: Install Ninja (windows)
-        run: choco install ninja          
-
-      - name: Setup MSVC (x64)
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install CMake
-        uses: lukka/get-cmake@v3.29.2
-
-      # ---------- Build (CMake, Visual Studio generator) ----------
-      - name: Configure (CMake)
-        shell: pwsh
-        run: |
-          Get-ChildItem Env: | Format-Table -AutoSize
-          cmake -S . -B build `
-            -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
-
-      - name: Build (CMake)
-        shell: pwsh
-        run: cmake --build build --config Release --parallel --target ALL_BUILD
-
-      # ---------- Package: windeployqt + ZIP ----------
-      - name: Package (windeployqt)
-        shell: pwsh
-        run: |
-          Get-ChildItem Env: | Format-Table -AutoSize
-          $exe1 = "build/Release/${env:APP_NAME}.exe"
-          $exe2 = "build/${env:APP_NAME}.exe"
-          if (Test-Path $exe1) { $exe = $exe1 } elseif (Test-Path $exe2) { $exe = $exe2 } else {
-            Write-Host "Executable not found. Listing build dir:" 
-            Get-ChildItem -Recurse build | Select-Object FullName
-            exit 1
-          }
-          Write-Host "Using exe: $exe"
-
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item $exe dist/
-
-          # Qt dependencies + MSVC runtime
-          windeployqt.exe --release --compiler-runtime --dir dist "dist/${env:APP_NAME}.exe"
-        
-          Compress-Archive -Path dist\* -DestinationPath "${env:APP_NAME}-windows-x64.zip" -Force
-          echo "ZIP_PATH=${env:APP_NAME}-windows-x64.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Upload artifact (ZIP)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APP_NAME }}-win-x64-zip
-          path: ${{ env.ZIP_PATH }}
-          if-no-files-found: error
-          retention-days: 14
