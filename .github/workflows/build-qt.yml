@@ -24,7 +24,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           target: desktop
           arch: clang_64
-          cache: true
+#          cache: true
 
       - name: Configure (CMake)
         env:
