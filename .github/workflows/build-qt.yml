@@ -12,23 +12,66 @@ jobs:
   macos-arm64:
     name: macOS arm64
     runs-on: macos-14
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          host: mac
-          target: desktop
-          arch: clang_64
-          cache: true
+      - name: Install build deps (Qt & PoDoFo)
+        run: brew install cmake ninja python pkg-config fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
 
-      - name: Install podofo dependencies
-        run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
+      - name: Checkout dependency repo
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qtbase
+          path: dependencies/qtbase
+
+      - name: Build & Install qtbase
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qtbase/build"
+          PREFIX="$GITHUB_WORKSPACE/dependencies/qtbase/install"
+
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF
+
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
+
+      - name: Checkout dependency repo
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qttools
+          path: dependencies/qttools
+
+      - name: Build & Install qttools
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qttools/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qttools/install"
+
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_PREFIX_PATH="$PREFIX" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF
+
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"          
+
+      - name: Setup Qt env vars
+        run: |
+          echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
+          echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
 
       - name: Checkout dependency repo
         uses: actions/checkout@v4
@@ -63,7 +106,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
-            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};/opt/homebrew;${GITHUB_WORKSPACE}/dependencies/podofo/install"
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
 
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
