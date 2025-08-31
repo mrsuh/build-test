@@ -27,12 +27,15 @@ jobs:
           cache: true
 
       - name: Configure (CMake)
+        env:
+          HOMEBREW_PREFIX: /opt/homebrew
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig
         run: |          
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
-            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};/opt/homebrew"
 
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
