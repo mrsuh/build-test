@@ -25,35 +25,27 @@ jobs:
           cache: true
 
       - name: Configure (CMake)
-        run: |
+        run: |          
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
-            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};${GITHUB_WORKSPACE}/dependencies/podofo/install"
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
 
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
 
-      - name: Bundle Qt (macdeployqt)
+      - name: Package (DMG)
         shell: bash
-        run: |
+        run: |                
           set -euo pipefail
-          macdeployqt "build/${APP_NAME}.app" -always-overwrite -verbose=3
-
-      - name: Ad-hoc codesign
-        shell: bash
-        run: |
-          APP_PATH="build/${APP_NAME}.app"
-          codesign --force -s - --deep --options runtime "$APP_PATH"
-          codesign -vv "$APP_PATH" || true
-
-      - name: Package DMG
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP_PATH="build/${APP_NAME}.app"
-          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=3
-          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV
+                  
+          APP_PATH="build/${APP_NAME}.app"                
+          
+          macdeployqt "$APP_PATH" -always-overwrite -verbose=2
+          
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2          
+         
+          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV         
 
       - name: Upload artifact (DMG)
         uses: actions/upload-artifact@v4
