@@ -11,7 +11,7 @@ env:
 jobs:
   macos-arm64:
     name: macOS arm64
-    runs-on: macos-15
+    runs-on: macos-14
 
     steps:
       - name: Checkout
@@ -21,6 +21,8 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          target: desktop
+          arch: clang_64
           cache: true
 
       - name: Update Homebrew
@@ -42,32 +44,59 @@ jobs:
           cd dependencies/podofo
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_FIND_FRAMEWORK=NEVER -DCMAKE_PREFIX_PATH=`brew --prefix` -DFontconfig_INCLUDE_DIR=`brew --prefix fontconfig`/include -DOPENSSL_ROOT_DIR=`brew --prefix openssl@3` ..
-          cmake --build . --config Release
+          cmake .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
+              -DCMAKE_FIND_FRAMEWORK=NEVER \
+              -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+              -DFontconfig_INCLUDE_DIR="$(brew --prefix fontconfig)/include" \
+              -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+          cmake --build . --config Release --parallel
           cmake --install . --prefix "${GITHUB_WORKSPACE}/dependencies/podofo/install"   
 
       - name: Configure (CMake)
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="arm64" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR};${GITHUB_WORKSPACE}/dependencies/podofo/install"
 
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
 
-      - name: Package (DMG)
+      - name: Bundle Qt (macdeployqt)
         shell: bash
-        run: |                
+        run: |
           set -euo pipefail
-                  
-          APP_PATH="build/${APP_NAME}.app"                
+          macdeployqt "build/${APP_NAME}.app" -always-overwrite -verbose=3
+
+      - name: Bundle non-Qt dylibs (dylibbundler)
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="build/${APP_NAME}.app"
+          BIN="$APP_PATH/Contents/MacOS/${APP_NAME}"
+          FRAMEWORKS="$APP_PATH/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"
+          
+          dylibbundler -od -b -x "$BIN" -d "$FRAMEWORKS" -p @executable_path/../Frameworks
           
           macdeployqt "$APP_PATH" -always-overwrite -verbose=2
-          
-          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2          
-         
-          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV         
+
+      - name: Ad-hoc codesign
+        shell: bash
+        run: |
+          APP_PATH="build/${APP_NAME}.app"
+          codesign --force -s - --deep --options runtime "$APP_PATH"
+          codesign -vv "$APP_PATH" || true
+
+      - name: Package DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="build/${APP_NAME}.app"
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2
+          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV
 
       - name: Upload artifact (DMG)
         uses: actions/upload-artifact@v4
