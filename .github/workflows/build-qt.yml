@@ -83,7 +83,7 @@ jobs:
           
           macdeployqt "$APP_PATH" -always-overwrite -verbose=2
 
-      - name: Ad-hoc codesign
+      - name: Ad-hoc )codesign)
         shell: bash
         run: |
           APP_PATH="build/${APP_NAME}.app"
