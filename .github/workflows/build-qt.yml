@@ -59,17 +59,14 @@ jobs:
           
           macdeployqt "$APP_PATH" -always-overwrite -verbose=2
           
-          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2          
-         
-          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV         
-
-      - name: Resign bundle (adhoc + disable lib validation)
-        shell: bash
-        run: |
-          set -euo pipefail
+          
           codesign --force --deep --options runtime \
             --entitlements entitlements.plist \
             -s - "build/${APP_NAME}.app"
+          
+          macdeployqt "$APP_PATH" -dmg -always-overwrite -verbose=2          
+         
+          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV               
 
       - name: Upload artifact (DMG)
         uses: actions/upload-artifact@v4
