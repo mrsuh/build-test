@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           codesign --force --deep --options runtime \
             --entitlements entitlements.plist \
-            -s - "MyQtApp.app"
+            -s - "build/${APP_NAME}.app"
 
       - name: Upload artifact (DMG)
         uses: actions/upload-artifact@v4
