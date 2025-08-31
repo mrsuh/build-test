@@ -81,9 +81,18 @@ jobs:
           APP_PATH="build/${APP_NAME}.app"
           BIN="$APP_PATH/Contents/MacOS/${APP_NAME}"
           FRAMEWORKS="$APP_PATH/Contents/Frameworks"
-          mkdir -p "$FRAMEWORKS"
+          mkdir -p "$FRAMEWORKS"                
           
-          dylibbundler -od -b -x "$BIN" -d "$FRAMEWORKS" -p @executable_path/../Frameworks
+          dylibbundler -od -b -x "$BIN" -d "$FRAMEWORKS" -p @executable_path/../Frameworks \
+              -s "${GITHUB_WORKSPACE}/dependencies/podofo/install/lib" \
+              -s "$(brew --prefix)/lib" \
+              -s "$(brew --prefix fontconfig)/lib" \
+              -s "$(brew --prefix freetype)/lib" \
+              -s "$(brew --prefix libpng)/lib" \
+              -s "$(brew --prefix libtiff)/lib" \
+              -s "$(brew --prefix jpeg-turbo)/lib" \
+              -s "$(brew --prefix libxml2)/lib" \
+              -s "$(brew --prefix openssl@3)/lib"
           
           macdeployqt "$APP_PATH" -always-overwrite -verbose=2
 
