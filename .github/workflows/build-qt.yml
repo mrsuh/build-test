@@ -32,7 +32,7 @@ jobs:
       - name: Checkout dependency repo
         uses: actions/checkout@v4
         with:
-          repository: podofo/podofo.git
+          repository: podofo/podofo
           path: podofo
 
       - name: Install podofo
