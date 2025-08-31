@@ -24,7 +24,7 @@ jobs:
           cache: true
 
       - name: Install podofo dependencies
-        run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff cmake
+        run: brew install fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
 
       - name: Update Homebrew
         run: brew update
