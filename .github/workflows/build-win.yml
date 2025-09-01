@@ -204,6 +204,21 @@ jobs:
           if (Test-Path $podofoBin) { Copy-Item "$podofoBin\*.dll" $stage -ErrorAction SilentlyContinue }
           $podofoLib = "${env:PODOFO_INSTALL}\lib"
           if (Test-Path $podofoLib) { Copy-Item "$podofoLib\*.dll" $stage -ErrorAction SilentlyContinue }
+                    
+          $triplet = "x64-windows"
+          $binDir = "${{ env.VCPKG_ROOT }}\installed\$triplet\bin"
+          $dist = "dist"
+          $patterns = @(
+            "tiff*.dll", "libtiff*.dll",
+            "zlib*.dll", "libpng*.dll", "jpeg*.dll", "libjpeg*.dll",
+            "freetype*.dll", "brotli*.dll", "lzma*.dll", "iconv*.dll",
+            "openjpeg*.dll", "podofo*.dll", "ssl*.dll", "crypto*.dll"
+          )
+          
+          foreach ($p in $patterns) {
+            Get-ChildItem -Path (Join-Path $binDir $p) -ErrorAction SilentlyContinue | `
+            Copy-Item -Destination $dist -Force
+          }          
 
           # Дополнительно: MSVC runtime (если windeployqt не подхватит)
           & where vcruntime140.dll  | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
