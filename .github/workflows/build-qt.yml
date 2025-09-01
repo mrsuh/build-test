@@ -89,7 +89,6 @@ jobs:
 
       - name: Install podofo
         run: |
-          env
           set -euo pipefail
           cd dependencies/podofo
           mkdir build
@@ -126,7 +125,8 @@ jobs:
 
       - name: Package (DMG)
         shell: bash
-        run: |                
+        run: |      
+          env
           set -euo pipefail
                   
           APP_PATH="build/${APP_NAME}.app"                
