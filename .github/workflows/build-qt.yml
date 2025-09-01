@@ -61,7 +61,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ GITHUB_WORKSPACE }}/dependencies/qttools
-          key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+          key: qt-tools-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
 
       - name: Checkout Qt tools repo
         if: steps.cache-qt-tools.outputs.cache-hit != 'true'
@@ -102,7 +102,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ GITHUB_WORKSPACE }}/dependencies/podofo
-          key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+          key: podofo-${{ runner.os }}-arm64
 
       - name: Checkout dependency repo
         if: steps.cache-podofo.outputs.cache-hit != 'true'
