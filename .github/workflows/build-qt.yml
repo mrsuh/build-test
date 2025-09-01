@@ -25,7 +25,7 @@ jobs:
         id: cache-qt-base
         uses: actions/cache@v4
         with:
-          path: ${{ GITHUB_WORKSPACE }}/dependencies/qtbase
+          path: ${{ env.GITHUB_WORKSPACE }}/dependencies/qtbase
           key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
 
       - name: Checkout Qt base repo
@@ -60,7 +60,7 @@ jobs:
         id: cache-qt-tools
         uses: actions/cache@v4
         with:
-          path: ${{ GITHUB_WORKSPACE }}/dependencies/qttools
+          path: ${{ env.GITHUB_WORKSPACE }}/dependencies/qttools
           key: qt-tools-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
 
       - name: Checkout Qt tools repo
@@ -101,7 +101,7 @@ jobs:
         id: cache-podofo
         uses: actions/cache@v4
         with:
-          path: ${{ GITHUB_WORKSPACE }}/dependencies/podofo
+          path: ${{ env.GITHUB_WORKSPACE }}/dependencies/podofo
           key: podofo-${{ runner.os }}-arm64
 
       - name: Checkout dependency repo
