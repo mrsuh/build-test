@@ -168,3 +168,55 @@ jobs:
           cmake --build  "${env:PODOFO_BUILD}" --parallel
           cmake --install "${env:PODOFO_BUILD}"
 
+      - name: Configure (CMake)
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="${env:QTBASE_INSTALL};${env:PODOFO_INSTALL}" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"
+
+      - name: Build (CMake)
+        shell: pwsh
+        run: cmake --build build --parallel
+
+      # ---------- Упаковка ----------
+      - name: Package (windeployqt + zip)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $exe = Join-Path "build" "${env:APP_NAME}.exe"
+          if (-not (Test-Path $exe)) {
+            $exe = Join-Path "build/Release" "${env:APP_NAME}.exe"
+          }
+          if (-not (Test-Path $exe)) { throw "Executable not found: $exe" }
+
+          $stage = "dist/${env:APP_NAME}-windows-x64"
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item $exe $stage/
+
+          # Qt runtime
+          windeployqt --release --compiler-runtime "$stage\${env:APP_NAME}.exe"
+
+          # DLL PoDoFo (если сборка shared)
+          $podofoBin = "${env:PODOFO_INSTALL}\bin"
+          if (Test-Path $podofoBin) { Copy-Item "$podofoBin\*.dll" $stage -ErrorAction SilentlyContinue }
+          $podofoLib = "${env:PODOFO_INSTALL}\lib"
+          if (Test-Path $podofoLib) { Copy-Item "$podofoLib\*.dll" $stage -ErrorAction SilentlyContinue }
+
+          # Дополнительно: MSVC runtime (если windeployqt не подхватит)
+          & where vcruntime140.dll  | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
+          & where vcruntime140_1.dll| ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
+          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
+
+          7z a "${stage}.zip" "$stage\*"
+          echo "ARTIFACT=${stage}.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Upload artifact (ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-windows-x64
+          path: ${{ env.ARTIFACT }}
+          if-no-files-found: error
+          retention-days: 14
