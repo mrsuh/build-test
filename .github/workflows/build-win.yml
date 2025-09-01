@@ -207,7 +207,6 @@ jobs:
                     
           $triplet = "x64-windows"
           $binDir = "${{ env.VCPKG_ROOT }}\installed\$triplet\bin"
-          $dist = "dist"
           $patterns = @(
             "tiff*.dll", "libtiff*.dll",
             "zlib*.dll", "libpng*.dll", "jpeg*.dll", "libjpeg*.dll",
@@ -217,7 +216,7 @@ jobs:
           
           foreach ($p in $patterns) {
             Get-ChildItem -Path (Join-Path $binDir $p) -ErrorAction SilentlyContinue | `
-            Copy-Item -Destination $dist -Force
+            Copy-Item -Destination $stage -Force
           }          
 
           # Дополнительно: MSVC runtime (если windeployqt не подхватит)
