@@ -25,7 +25,7 @@ jobs:
         id: cache-qt-base
         uses: actions/cache@v4
         with:
-          path: ${{ env.GITHUB_WORKSPACE }}/dependencies/qtbase
+          path: ${{ github.workspace }}/dependencies/qtbase
           key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
 
       - name: Checkout Qt base repo
@@ -60,7 +60,7 @@ jobs:
         id: cache-qt-tools
         uses: actions/cache@v4
         with:
-          path: ${{ env.GITHUB_WORKSPACE }}/dependencies/qttools
+          path: ${{ github.workspace }}/dependencies/qttools
           key: qt-tools-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
 
       - name: Checkout Qt tools repo
@@ -83,8 +83,8 @@ jobs:
 
           cmake -S "$SRC" -B "$BUILD" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/dependencies/qtbase/install" \
-            -DCMAKE_PREFIX_PATH="$PREFIX" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/dependencies/qtbase/install" \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DQT_BUILD_EXAMPLES=OFF \
             -DQT_BUILD_TESTS=OFF
@@ -101,7 +101,7 @@ jobs:
         id: cache-podofo
         uses: actions/cache@v4
         with:
-          path: ${{ env.GITHUB_WORKSPACE }}/dependencies/podofo
+          path: ${{ github.workspace }}/dependencies/podofo
           key: podofo-${{ runner.os }}-arm64
 
       - name: Checkout dependency repo
