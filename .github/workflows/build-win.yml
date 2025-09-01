@@ -134,7 +134,7 @@ jobs:
           $vcpkg = "${{ github.workspace }}\vcpkg\vcpkg.exe"
           & $vcpkg version
           # Библиотеки, которые обычно требуются PoDoFo:
-          & $vcpkg install zlib:x64-windows libpng:x64-windows freetype:x64-windows libtiff:x64-windows openssl:x64-windows
+          & $vcpkg install fontconfig:x64-windows freetype:x64-windows libxml2:x64-windows openssl:x64-windows libjpeg-turbo:x64-windows libpng:x64-windows tiff:x64-windows zlib:x64-windows          
 
       # ---------- PoDoFo из исходников ----------
       - name: Cache PoDoFo install
