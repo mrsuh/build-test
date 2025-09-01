@@ -145,6 +145,7 @@ jobs:
       - name: Verify app (arch & libs)
         shell: bash
         run: |
+          env
           set -euo pipefail
           BIN="build/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
           lipo -archs "$BIN"
