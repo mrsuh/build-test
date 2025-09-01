@@ -212,6 +212,8 @@ jobs:
             "libxml2.dll",
             "libcrypto-3-x64.dll", "libssl-3-x64.dll",
             "liblzma*.dll",
+            "libexpat*.dll",
+            "bz2*.dll",
             "tiff*.dll", "libtiff*.dll",
             "zlib*.dll", "libpng*.dll", "jpeg*.dll", "libjpeg*.dll",
             "freetype*.dll", "brotli*.dll", "lzma*.dll", "iconv*.dll",
@@ -226,15 +228,12 @@ jobs:
           # Дополнительно: MSVC runtime (если windeployqt не подхватит)
           & where vcruntime140.dll  | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
           & where vcruntime140_1.dll| ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
-          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
-
-          7z a "${stage}.zip" "$stage\*"
-          echo "ARTIFACT=${stage}.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }                  
 
       - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-windows-x64
-          path: ${{ env.ARTIFACT }}
+          path: dist/${{ env.APP_NAME }}-windows-x64
           if-no-files-found: error
           retention-days: 14
