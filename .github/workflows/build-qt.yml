@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
           BUILD="${GITHUB_WORKSPACE}/dependencies/qtbase/build"
-          PREFIX="$GITHUB_WORKSPACE/dependencies/qtbase/install"
+          PREFIX="$GITHUB_WORKSPACE/dependencies/qt-install"
 
           cmake -S "$SRC" -B "$BUILD" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
           BUILD="${GITHUB_WORKSPACE}/dependencies/qttools/build"
-          PREFIX="${GITHUB_WORKSPACE}/dependencies/qttools/install"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qt-install"
 
           cmake -S "$SRC" -B "$BUILD" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -76,8 +76,7 @@ jobs:
 
       - name: Setup Qt env vars
         run: |
-          echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
-          echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
+          echo "${GITHUB_WORKSPACE}/dependencies/qt-install/bin" >> $GITHUB_PATH
 
       - name: Checkout dependency repo
         uses: actions/checkout@v4
@@ -114,7 +113,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
-            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qt-install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
 
       - name: Build (CMake)
         run: cmake --build build --config Release --parallel --target all
