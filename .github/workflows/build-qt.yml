@@ -21,7 +21,15 @@ jobs:
       - name: Install build deps (Qt & PoDoFo)
         run: brew install ninja python pkg-config fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
 
-      - name: Checkout dependency repo
+      - name: Cache Qt base
+        id: cache-qt-base
+        uses: actions/cache@v4
+        with:
+          path: ${{ GITHUB_WORKSPACE }}/dependencies/qtbase
+          key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt base repo
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: qt/qtbase
@@ -31,6 +39,7 @@ jobs:
           fetch-depth: 1
 
       - name: Build & Install qtbase
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
@@ -47,7 +56,15 @@ jobs:
           cmake --build "$BUILD" --parallel
           cmake --install "$BUILD"
 
-      - name: Checkout dependency repo
+      - name: Cache Qt tools
+        id: cache-qt-tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ GITHUB_WORKSPACE }}/dependencies/qttools
+          key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt tools repo
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: qt/qttools
@@ -57,6 +74,7 @@ jobs:
           fetch-depth: 1
 
       - name: Build & Install qttools
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
@@ -79,7 +97,15 @@ jobs:
           echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
           echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
 
+      - name: Cache podofo
+        id: cache-podofo
+        uses: actions/cache@v4
+        with:
+          path: ${{ GITHUB_WORKSPACE }}/dependencies/podofo
+          key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+
       - name: Checkout dependency repo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: podofo/podofo
@@ -88,6 +114,7 @@ jobs:
           fetch-depth: 1
 
       - name: Install podofo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           cd dependencies/podofo
