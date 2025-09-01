@@ -208,11 +208,15 @@ jobs:
           $triplet = "x64-windows"
           $binDir = "${{ env.VCPKG_ROOT }}\installed\$triplet\bin"
           $patterns = @(
+            "fontconfig-1.dll",
+            "libxml2.dll",
+            "libcrypto-3-x64.dll", "libssl-3-x64.dll",
+            "liblzma*.dll",
             "tiff*.dll", "libtiff*.dll",
             "zlib*.dll", "libpng*.dll", "jpeg*.dll", "libjpeg*.dll",
             "freetype*.dll", "brotli*.dll", "lzma*.dll", "iconv*.dll",
             "openjpeg*.dll", "podofo*.dll", "ssl*.dll", "crypto*.dll"
-          )
+          )                    
           
           foreach ($p in $patterns) {
             Get-ChildItem -Path (Join-Path $binDir $p) -ErrorAction SilentlyContinue | `
