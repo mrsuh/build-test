@@ -22,4 +22,5 @@ target_link_libraries(MyQtApp PRIVATE podofo::podofo)
 set_target_properties(MyQtApp PROPERTIES
   MACOSX_BUNDLE_GUI_IDENTIFIER com.example.myqtapp
   MACOSX_BUNDLE_BUNDLE_NAME "MyQtApp"
+  WIN32_EXECUTABLE TRUE
 )
