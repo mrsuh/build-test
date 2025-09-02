@@ -210,7 +210,7 @@ jobs:
           Terminal=false
           EOF
           # simple placeholder icon (256x256)
-          convert -size 256x256 xc:white -gravity center -pointsize 64 -annotate 0 "QT" packaging/${APP_NAME}.png
+          cp icons/linux.png packaging/${APP_NAME}.png
 
       - name: Download linuxdeploy + plugin
         run: |
