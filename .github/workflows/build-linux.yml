@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail          
           sudo apt-get install -y \
-            libegl1-mesa-dev libgles2-mesa-dev libgbm-dev libdrm-dev \          
+            build-essential ninja-build cmake git curl file python3 pkg-config \                      
             libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
             libjpeg-turbo8-dev libpng-dev libtiff-dev zlib1g-dev \
             libxml2-dev libssl-dev libicu-dev libglib2.0-dev \
