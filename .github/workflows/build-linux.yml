@@ -1,0 +1,194 @@
+name: Build Qt App (Linux x64)
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  APP_NAME: MyQtApp
+  QT_VERSION: "6.8.3"
+
+jobs:
+  linux-x64:
+    name: Linux x64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps (APT)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential ninja-build cmake git curl file \
+            python3 pkg-config \
+            libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
+            libjpeg-turbo8-dev libpng-dev libtiff-dev zlib1g-dev \
+            libxml2-dev libssl-dev libicu-dev libglib2.0-dev \
+            patchelf imagemagick
+
+      # ---------- Qt: qtbase ----------
+      - name: Cache Qt base
+        id: cache-qt-base
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qtbase
+          key: qt-base-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt base repo
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qtbase
+          path: dependencies/qtbase
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qtbase
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qtbase/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qtbase/install"
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
+
+      # ---------- Qt: qttools ----------
+      - name: Cache Qt tools
+        id: cache-qt-tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qttools
+          key: qt-tools-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt tools repo
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qttools
+          path: dependencies/qttools
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qttools
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qttools/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qttools/install"
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install" \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
+
+      - name: Setup Qt env vars
+        run: |
+          echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
+          echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
+
+      # ---------- PoDoFo ----------
+      - name: Cache podofo
+        id: cache-podofo
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/podofo
+          key: podofo-${{ runner.os }}-x64
+
+      - name: Checkout PoDoFo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo
+          path: dependencies/podofo
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install PoDoFo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cd dependencies/podofo
+          mkdir -p build && cd build
+          cmake .. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="/usr" \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/dependencies/podofo/install"
+          cmake --build . --parallel
+          cmake --install .
+
+      # ---------- Build your app ----------
+      - name: Configure (CMake)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
+
+      - name: Build (CMake)
+        run: cmake --build build --parallel --target all
+
+      - name: Verify binary (ldd)
+        run: |
+          set -euo pipefail
+          file "build/${APP_NAME}" || true
+          ldd "build/${APP_NAME}" || true
+
+      # ---------- Package: AppImage (linuxdeploy + qt plugin) ----------
+      - name: Prepare desktop & icon
+        run: |
+          mkdir -p packaging
+          cat > packaging/${APP_NAME}.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=MyQtApp
+          Exec=MyQtApp
+          Icon=MyQtApp
+          Categories=Utility;
+          Terminal=false
+          EOF
+          # simple placeholder icon (256x256)
+          convert -size 256x256 xc:white -gravity center -pointsize 64 -annotate 0 "QT" packaging/${APP_NAME}.png
+
+      - name: Download linuxdeploy + plugin
+        run: |
+          curl -L -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -L -o linuxdeploy-plugin-qt-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-*.AppImage
+
+      - name: Build AppImage
+        env:
+          QML_SOURCES_PATHS: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            -e "build/${APP_NAME}" \
+            -d "packaging/${APP_NAME}.desktop" \
+            -i "packaging/${APP_NAME}.png" \
+            --plugin qt
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          APPIMAGE_PATH="$(ls -1 *.AppImage | head -n1)"
+          echo "APPIMAGE_PATH=${APPIMAGE_PATH}" >> $GITHUB_ENV
+
+      - name: Upload artifact (AppImage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-linux-x64-appimage
+          path: ${{ env.APPIMAGE_PATH }}
+          if-no-files-found: error
+          retention-days: 14
