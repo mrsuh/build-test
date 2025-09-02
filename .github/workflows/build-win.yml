@@ -228,7 +228,10 @@ jobs:
           # Дополнительно: MSVC runtime (если windeployqt не подхватит)
           & where vcruntime140.dll  | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
           & where vcruntime140_1.dll| ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
-          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }                  
+          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }    
+                
+          Get-ChildItem $stage -File -Include *redist*.exe -ErrorAction SilentlyContinue |
+            Remove-Item -Force              
 
       - name: Add MSVC runtime (app-local)
         shell: pwsh
