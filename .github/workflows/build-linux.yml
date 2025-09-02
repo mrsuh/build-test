@@ -142,3 +142,40 @@ jobs:
             -DQT_GENERATE_SBOM=OFF
           cmake --build "$BUILD" --parallel
           cmake --install "$BUILD"
+
+
+      - name: Setup Qt env vars
+        run: |
+          echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
+          echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
+
+      # ---------- PoDoFo ----------
+      - name: Cache podofo
+        id: cache-podofo
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/podofo
+          key: podofo-${{ runner.os }}-x64
+
+      - name: Checkout PoDoFo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo
+          path: dependencies/podofo
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install PoDoFo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cd dependencies/podofo
+          mkdir -p build && cd build
+          cmake .. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="/usr" \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/dependencies/podofo/install"
+          cmake --build . --parallel
+          cmake --install .
