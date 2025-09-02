@@ -230,25 +230,55 @@ jobs:
           & where vcruntime140_1.dll| ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
           & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }                  
 
-
       - name: Add MSVC runtime (app-local)
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $stage = "dist/${env:APP_NAME}-windows-x64"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-          # Найти установленную VS
+          # 1) Предпочтительно: из env VCToolsRedistDir (есть после msvc-dev-cmd)
+          if ($env:VCToolsRedistDir) {
+            $cand = Join-Path $env:VCToolsRedistDir "x64"
+            $vcDir = Get-ChildItem $cand -Directory -Filter "Microsoft.VC*.CRT" |
+                     Sort-Object Name -Descending | Select-Object -First 1
+            if ($vcDir) {
+              Copy-Item (Join-Path $vcDir.FullName "*.dll") $stage -Force
+              Write-Host "CRT copied from $($vcDir.FullName)"
+              goto Done
+            }
+          }
+
+          # 2) Фоллбэк: через vswhere найдём установленную VS и свежий Redist
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $vs = & $vswhere -latest -products * `
-              -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-              -property installationPath
+                -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+                -property installationPath
           if (-not $vs) { throw "Visual Studio not found" }
 
-          # Самый свежий пакет MSVC Redist
           $redistRoot = Join-Path $vs "VC\Redist\MSVC"
-          $latest = Get-ChildItem $redistRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
-          $crt = Join-Path $latest.FullName "x64\Microsoft.VC143.CRT"
+          $verDir = Get-ChildItem $redistRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $verDir) { throw "MSVC Redist dir not found under $redistRoot" }
 
-          Copy-Item (Join-Path $crt "*.dll") $stage -Force
+          $crtParent = Join-Path $verDir.FullName "x64"
+          $vcDir = Get-ChildItem $crtParent -Directory -Filter "Microsoft.VC*.CRT" |
+                   Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $vcDir) { throw "Microsoft.VC*.CRT not found under $crtParent" }
+
+          Copy-Item (Join-Path $vcDir.FullName "*.dll") $stage -Force
+          Write-Host "CRT copied from $($vcDir.FullName)"
+
+          :Done
+
+          # (опционально) UCRT из Windows SDK, если нужен
+          $ucrt = "C:\Program Files (x86)\Windows Kits\10\Redist\ucrt\DLLs\x64"
+          if (Test-Path $ucrt) {
+            Copy-Item (Join-Path $ucrt "*.dll") $stage -Force
+            Write-Host "UCRT copied from $ucrt"
+          }
+
+          # Быстрая проверка
+          Get-ChildItem $stage | Where-Object Name -match "vc|msvc|msvcp|vcruntime" | Format-Table Name,Length
 
       - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
