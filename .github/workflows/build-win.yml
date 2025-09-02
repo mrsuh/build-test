@@ -279,7 +279,7 @@ jobs:
             Write-Host "UCRT copied from $ucrt"
           }
           
-          Get-ChildItem $stage -File -Include *redist*.exe -ErrorAction SilentlyContinue |
+          Get-ChildItem $stage -File -Include *redist*.exe *redist*.x64.exe -ErrorAction SilentlyContinue |
             Remove-Item -Force               
 
           # Быстрая проверка, что нужные DLL на месте
