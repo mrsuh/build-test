@@ -103,3 +103,42 @@ jobs:
           
           cmake --build "$BUILD" --parallel
           cmake --install "$BUILD"
+
+      # ---------- Qt: qttools ----------
+      - name: Cache Qt tools
+        id: cache-qt-tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qttools
+          key: qt-tools-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt tools repo
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qttools
+          path: dependencies/qttools
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qttools
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qttools/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qttools/install"
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install" \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Clang=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON \
+            -DQT_FEATURE_clang=OFF \
+            -DQT_FEATURE_clangcpp=OFF \
+            -DQT_GENERATE_SBOM=OFF
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
