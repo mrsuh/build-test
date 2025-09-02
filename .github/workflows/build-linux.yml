@@ -22,12 +22,34 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential ninja-build cmake git curl file python3 pkg-config \          
-            libx11-dev libxext-dev libxrender-dev libxrandr-dev libxi-dev \
-            libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb1-dev libxcb-render0-dev libxcb-image0-dev libxcb-keysyms1-dev \
-            libxcb-icccm4-dev libxcb-shm0-dev libxcb-xfixes0-dev libxcb-shape0-dev \
-            libxcb-randr0-dev libxcb-util-dev \          
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libgtk-3-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb-cursor-dev \
+            libxcb-glx0-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-render-util0-dev \
+            libxcb-shape0-dev \
+            libxcb-shm0-dev \
+            libxcb-sync-dev \
+            libxcb-util-dev \
+            libxcb-xfixes0-dev \
+            libxcb-xkb-dev \
+            libxcb1-dev \
+            libxext-dev \
+            libxfixes-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxrender-dev
+          
+          sudo apt-get install -y \
+            build-essential ninja-build cmake git curl file python3 pkg-config \
             mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libglvnd-dev \
             libegl1-mesa-dev libgles2-mesa-dev libgbm-dev libdrm-dev \          
             libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
