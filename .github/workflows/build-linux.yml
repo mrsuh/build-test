@@ -72,7 +72,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/dependencies/qtbase
-          key: qt-base-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+          key: qt-base-${{ runner.os }}-x64-${{ env.QT_VERSION }}-v2
 
       - name: Checkout Qt base repo
         if: steps.cache-qt-base.outputs.cache-hit != 'true'
@@ -110,7 +110,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/dependencies/qttools
-          key: qt-tools-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+          key: qt-tools-${{ runner.os }}-x64-${{ env.QT_VERSION }}-v2
 
       - name: Checkout Qt tools repo
         if: steps.cache-qt-tools.outputs.cache-hit != 'true'
@@ -155,7 +155,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/dependencies/podofo
-          key: podofo-${{ runner.os }}-x64
+          key: podofo-${{ runner.os }}-x64-v2
 
       - name: Checkout PoDoFo
         if: steps.cache-podofo.outputs.cache-hit != 'true'
