@@ -41,7 +41,7 @@ jobs:
       - name: Install tools (Ninja, Git)
         shell: pwsh
         run: |
-          choco install -y ninja git -y --force          
+          choco install -y ninja git     
 
       # ---------- Qt: qtbase ----------
       - name: Cache qtbase install
