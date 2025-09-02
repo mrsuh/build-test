@@ -279,8 +279,13 @@ jobs:
             Write-Host "UCRT copied from $ucrt"
           }
                     
-          Remove-Item -Force $stage\vc_redist.x64.exe        
-
+          Remove-Item -Force $stage\vc_redist.x64.exe    
+          Remove-Item -Force $stage\dxil.dll    
+          Remove-Item -Force $stage\dxcompiler.dll    
+          Remove-Item -Force $stage\d3dcompiler_47.dll                  
+                  
+          Get-ChildItem $stage -File -Filter api-ms-*.dll | Remove-Item -Force
+  
           # Быстрая проверка, что нужные DLL на месте
           Get-ChildItem $stage | Format-Table Name,Length                  
 
