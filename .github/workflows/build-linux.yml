@@ -179,3 +179,64 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/dependencies/podofo/install"
           cmake --build . --parallel
           cmake --install .
+
+      # ---------- Build your app ----------
+      - name: Configure (CMake)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
+
+      - name: Build (CMake)
+        run: cmake --build build --parallel --target all
+
+      - name: Verify binary (ldd)
+        run: |
+          set -euo pipefail
+          file "build/${APP_NAME}" || true
+          ldd "build/${APP_NAME}" || true
+
+      # ---------- Package: AppImage (linuxdeploy + qt plugin) ----------
+      - name: Prepare desktop & icon
+        run: |
+          mkdir -p packaging
+          cat > packaging/${APP_NAME}.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=MyQtApp
+          Exec=MyQtApp
+          Icon=MyQtApp
+          Categories=Utility;
+          Terminal=false
+          EOF
+          # simple placeholder icon (256x256)
+          convert -size 256x256 xc:white -gravity center -pointsize 64 -annotate 0 "QT" packaging/${APP_NAME}.png
+
+      - name: Download linuxdeploy + plugin
+        run: |
+          curl -L -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -L -o linuxdeploy-plugin-qt-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-*.AppImage
+
+      - name: Build AppImage
+        env:
+          QML_SOURCES_PATHS: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            -e "build/${APP_NAME}" \
+            -d "packaging/${APP_NAME}.desktop" \
+            -i "packaging/${APP_NAME}.png" \
+            --plugin qt
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          APPIMAGE_PATH="$(ls -1 *.AppImage | head -n1)"
+          echo "APPIMAGE_PATH=${APPIMAGE_PATH}" >> $GITHUB_ENV
+
+      - name: Upload artifact (AppImage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-linux-x64-appimage
+          path: ${{ env.APPIMAGE_PATH }}
+          if-no-files-found: error
+          retention-days: 14
