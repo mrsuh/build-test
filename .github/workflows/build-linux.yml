@@ -20,6 +20,7 @@ jobs:
 
       - name: Install build deps (APT)
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y \
             libfontconfig1-dev \
