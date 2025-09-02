@@ -228,10 +228,7 @@ jobs:
           # Дополнительно: MSVC runtime (если windeployqt не подхватит)
           & where vcruntime140.dll  | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
           & where vcruntime140_1.dll| ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
-          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }    
-                
-          Get-ChildItem $stage -File -Include *redist*.exe -ErrorAction SilentlyContinue |
-            Remove-Item -Force              
+          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }                             
 
       - name: Add MSVC runtime (app-local)
         shell: pwsh
@@ -281,10 +278,12 @@ jobs:
             Copy-Item (Join-Path $ucrt "*.dll") $stage -Force
             Write-Host "UCRT copied from $ucrt"
           }
+          
+          Get-ChildItem $stage -File -Include *redist*.exe -ErrorAction SilentlyContinue |
+            Remove-Item -Force               
 
           # Быстрая проверка, что нужные DLL на месте
-          Get-ChildItem $stage | Where-Object Name -match "vcruntime|msvcp|concrt|vccorlib" |
-            Format-Table Name,Length
+          Get-ChildItem $stage | Format-Table Name,Length                  
 
       - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
