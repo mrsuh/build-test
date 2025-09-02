@@ -90,14 +90,16 @@ jobs:
           set -euo pipefail
           SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
           BUILD="${GITHUB_WORKSPACE}/dependencies/qtbase/build"
-          PREFIX="${GITHUB_WORKSPACE}/dependencies/qtbase/install"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qtbase/install"          
           cmake -S "$SRC" -B "$BUILD" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$PREFIX" \
             -DQT_BUILD_EXAMPLES=OFF \
             -DQT_BUILD_TESTS=OFF \
-            -DQT_FEATURE_opengl=desktop \
-            -DOpenGL_GL_PREFERENCE=GLVND
+            -DQT_FEATURE_opengl_desktop=ON \
+            -DQT_FEATURE_opengles2=OFF \
+            -DOpenGL_GL_PREFERENCE=GLVND \
+            -DQT_GENERATE_SBOM=OFF
           
           cmake --build "$BUILD" --parallel
           cmake --install "$BUILD"
