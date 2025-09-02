@@ -278,9 +278,8 @@ jobs:
             Copy-Item (Join-Path $ucrt "*.dll") $stage -Force
             Write-Host "UCRT copied from $ucrt"
           }
-          
-          Get-ChildItem $stage -File -Include vc_redist.x64.exe *redist*.exe *redist*.x64.exe -ErrorAction SilentlyContinue |
-            Remove-Item -Force               
+                    
+          Remove-Item -Force $stage\vc_redist.x64.exe        
 
           # Быстрая проверка, что нужные DLL на месте
           Get-ChildItem $stage | Format-Table Name,Length                  
