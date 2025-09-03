@@ -1,0 +1,713 @@
+name: Build Qt App (Linux x64)
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  APP_NAME: MyQtApp
+  QT_VERSION: "6.8.3"
+
+  # qtbase
+  QTBASE_SRC: ${{ github.workspace }}/dependencies/qtbase
+  QTBASE_BUILD: ${{ github.workspace }}/dependencies/qtbase/build
+  QTBASE_INSTALL: ${{ github.workspace }}/dependencies/qtbase/install
+
+  # qttools (для windeployqt)
+  QTTOOLS_SRC: ${{ github.workspace }}/dependencies/qttools
+  QTTOOLS_BUILD: ${{ github.workspace }}/dependencies/qttools/build
+  QTTOOLS_INSTALL: ${{ github.workspace }}/dependencies/qttools/install
+
+  # PoDoFo
+  PODOFO_SRC: ${{ github.workspace }}/dependencies/podofo
+  PODOFO_BUILD: ${{ github.workspace }}/dependencies/podofo/build
+  PODOFO_INSTALL: ${{ github.workspace }}/dependencies/podofo/install
+
+jobs:
+  linux-x64:
+    name: Linux x64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps (APT)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libgtk-3-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb-cursor-dev \
+            libxcb-glx0-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-render-util0-dev \
+            libxcb-shape0-dev \
+            libxcb-shm0-dev \
+            libxcb-sync-dev \
+            libxcb-util-dev \
+            libxcb-xfixes0-dev \
+            libxcb-xkb-dev \
+            libxcb1-dev \
+            libxext-dev \
+            libxfixes-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxrender-dev
+
+      - name: Install build deps 2 (APT)
+        run: |
+          set -euo pipefail          
+          sudo apt-get install -y \
+            mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libglvnd-dev \
+            libegl1-mesa-dev libgles2-mesa-dev libgbm-dev libdrm-dev
+
+      - name: Install build deps 3 (APT)
+        run: |
+          set -euo pipefail          
+          sudo apt-get install -y \
+            build-essential ninja-build cmake git curl file python3 pkg-config \
+            libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
+            libjpeg-turbo8-dev libpng-dev libtiff-dev zlib1g-dev \
+            libxml2-dev libssl-dev libicu-dev libglib2.0-dev \
+            patchelf imagemagick                      
+
+      # ---------- Qt: qtbase ----------
+      - name: Cache Qt base
+        id: cache-qt-base
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qtbase
+          key: qt-base-${{ runner.os }}-x64-${{ env.QT_VERSION }}-v2
+
+      - name: Checkout Qt base repo
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qtbase
+          path: dependencies/qtbase
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qtbase
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qtbase/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qtbase/install"          
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF \
+            -DQT_FEATURE_opengl_desktop=ON \
+            -DQT_FEATURE_opengles2=OFF \
+            -DOpenGL_GL_PREFERENCE=GLVND \
+            -DQT_GENERATE_SBOM=OFF
+          
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
+
+      # ---------- Qt: qttools ----------
+      - name: Cache Qt tools
+        id: cache-qt-tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qttools
+          key: qt-tools-${{ runner.os }}-x64-${{ env.QT_VERSION }}-v2
+
+      - name: Checkout Qt tools repo
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qttools
+          path: dependencies/qttools
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qttools
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qttools/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qttools/install"
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install" \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Clang=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON \
+            -DQT_FEATURE_clang=OFF \
+            -DQT_FEATURE_clangcpp=OFF \
+            -DQT_GENERATE_SBOM=OFF
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
+
+
+      - name: Setup Qt env vars
+        run: |
+          echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
+          echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
+
+      # ---------- PoDoFo ----------
+      - name: Cache podofo
+        id: cache-podofo
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/podofo
+          key: podofo-${{ runner.os }}-x64-v2
+
+      - name: Checkout PoDoFo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo
+          path: dependencies/podofo
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install PoDoFo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cd dependencies/podofo
+          mkdir -p build && cd build
+          cmake .. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="/usr" \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/dependencies/podofo/install"
+          cmake --build . --parallel
+          cmake --install .
+
+      # ---------- Build your app ----------
+      - name: Configure (CMake)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
+
+      - name: Build (CMake)
+        run: cmake --build build --parallel --target all
+
+      - name: Verify binary (ldd)
+        run: |
+          set -euo pipefail
+          file "build/${APP_NAME}" || true
+          ldd "build/${APP_NAME}" || true
+
+      # ---------- Package: AppImage (linuxdeploy + qt plugin) ----------
+      - name: Prepare desktop & icon
+        run: |
+          mkdir -p packaging
+          cat > packaging/${APP_NAME}.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=MyQtApp
+          Exec=MyQtApp
+          Icon=MyQtApp
+          Categories=Utility;
+          Terminal=false
+          EOF
+          # simple placeholder icon (256x256)
+          cp icons/linux.png packaging/${APP_NAME}.png
+
+      - name: Download linuxdeploy + plugin
+        run: |
+          curl -L -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -L -o linuxdeploy-plugin-qt-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-*.AppImage
+
+      - name: Build AppImage
+        env:
+          QML_SOURCES_PATHS: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            -e "build/${APP_NAME}" \
+            -d "packaging/${APP_NAME}.desktop" \
+            -i "packaging/${APP_NAME}.png" \
+            --plugin qt
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          APPIMAGE_PATH="$(ls -1 *.AppImage | head -n1)"
+          echo "APPIMAGE_PATH=${APPIMAGE_PATH}" >> $GITHUB_ENV
+
+      - name: Upload artifact (AppImage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-linux-x64-appimage
+          path: ${{ env.APPIMAGE_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  macos-arm64:
+    name: macOS arm64
+    runs-on: macos-14
+    timeout-minutes: 28
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps (Qt & PoDoFo)
+        run: brew install ninja python pkg-config fontconfig freetype openssl libxml2 jpeg-turbo libpng libtiff
+
+      - name: Cache Qt base
+        id: cache-qt-base
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qtbase
+          key: qt-base-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt base repo
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qtbase
+          path: dependencies/qtbase
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qtbase
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qtbase"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qtbase/build"
+          PREFIX="$GITHUB_WORKSPACE/dependencies/qtbase/install"
+
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF
+
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"
+
+      - name: Cache Qt tools
+        id: cache-qt-tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/qttools
+          key: qt-tools-${{ runner.os }}-arm64-${{ env.QT_VERSION }}
+
+      - name: Checkout Qt tools repo
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qttools
+          path: dependencies/qttools
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qttools
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          SRC="${GITHUB_WORKSPACE}/dependencies/qttools"
+          BUILD="${GITHUB_WORKSPACE}/dependencies/qttools/build"
+          PREFIX="${GITHUB_WORKSPACE}/dependencies/qttools/install"
+
+          cmake -S "$SRC" -B "$BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/dependencies/qtbase/install" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DQT_BUILD_EXAMPLES=OFF \
+            -DQT_BUILD_TESTS=OFF
+
+          cmake --build "$BUILD" --parallel
+          cmake --install "$BUILD"          
+
+      - name: Setup Qt env vars
+        run: |
+          echo "${GITHUB_WORKSPACE}/dependencies/qtbase/install/bin" >> $GITHUB_PATH
+          echo "${GITHUB_WORKSPACE}/dependencies/qttools/install/bin" >> $GITHUB_PATH
+
+      - name: Cache podofo
+        id: cache-podofo
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dependencies/podofo
+          key: podofo-${{ runner.os }}-arm64
+
+      - name: Checkout dependency repo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo
+          path: dependencies/podofo
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install podofo
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cd dependencies/podofo
+          mkdir build
+          cd build
+          cmake .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
+              -DCMAKE_FIND_FRAMEWORK=NEVER \
+              -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+              -DFontconfig_INCLUDE_DIR="$(brew --prefix fontconfig)/include" \
+              -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+          cmake --build . --config Release
+          cmake --install . --prefix "${GITHUB_WORKSPACE}/dependencies/podofo/install"             
+
+      - name: Configure (CMake)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0" \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dependencies/qtbase/install;${GITHUB_WORKSPACE}/dependencies/podofo/install"
+
+      - name: Build (CMake)
+        run: cmake --build build --config Release --parallel --target all
+
+      - name: Verify app (arch & libs)
+        shell: bash
+        run: |
+          env
+          set -euo pipefail
+          BIN="build/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
+          lipo -archs "$BIN"
+          otool -L "$BIN" || true
+
+      - name: Package (DMG)
+        shell: bash
+        run: |
+          env
+          set -euo pipefail
+          
+          APP_PATH="build/${APP_NAME}.app"                
+          
+          macdeployqt "$APP_PATH" -always-overwrite
+          
+          brew install dylibbundler
+          
+          BIN="$APP_PATH/Contents/MacOS/${APP_NAME}"
+          FRAMEWORKS="$APP_PATH/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"                
+          
+          dylibbundler -od -b -x "$BIN" -d "$FRAMEWORKS" -p @executable_path/../Frameworks \
+              -s "${GITHUB_WORKSPACE}/dependencies/podofo/install/lib" \
+              -s "$(brew --prefix)/lib" \
+              -s "$(brew --prefix fontconfig)/lib" \
+              -s "$(brew --prefix freetype)/lib" \
+              -s "$(brew --prefix libpng)/lib" \
+              -s "$(brew --prefix libtiff)/lib" \
+              -s "$(brew --prefix jpeg-turbo)/lib" \
+              -s "$(brew --prefix libxml2)/lib" \
+              -s "$(brew --prefix openssl@3)/lib"
+
+          codesign --force --deep --options runtime \
+            --entitlements entitlements.plist \
+            -s - "$APP_PATH"  
+          
+          macdeployqt "$APP_PATH" -dmg -always-overwrite        
+          
+          echo "DMG_PATH=build/${APP_NAME}.dmg" >> $GITHUB_ENV               
+
+      - name: Upload artifact (DMG)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-macos-arm64-dmg
+          path: ${{ env.DMG_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-x64:
+    name: Windows x86_64
+    runs-on: windows-2022
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Enable MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install tools (Ninja, Git)
+        shell: pwsh
+        run: |
+          choco install -y ninja git     
+
+      # ---------- Qt: qtbase ----------
+      - name: Cache qtbase install
+        id: cache-qt-base
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QTBASE_INSTALL }}
+          key: qt-base-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+
+      - name: Checkout qtbase sources
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qtbase
+          path: dependencies/qtbase
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qtbase
+        if: steps.cache-qt-base.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          cmake -S "${env:QTBASE_SRC}" -B "${env:QTBASE_BUILD}" -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX="${env:QTBASE_INSTALL}" `
+            -DQT_BUILD_EXAMPLES=OFF `
+            -DQT_BUILD_TESTS=OFF
+          cmake --build "${env:QTBASE_BUILD}" --parallel
+          cmake --install "${env:QTBASE_BUILD}"
+
+      # ---------- Qt: qttools (для windeployqt) ----------
+      - name: Cache qttools install
+        id: cache-qt-tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QTTOOLS_INSTALL }}
+          key: qt-tools-${{ runner.os }}-x64-${{ env.QT_VERSION }}
+
+      - name: Checkout qttools sources
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: qt/qttools
+          path: dependencies/qttools
+          ref: v${{ env.QT_VERSION }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build & Install qttools
+        if: steps.cache-qt-tools.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          cmake -S "${env:QTTOOLS_SRC}" -B "${env:QTTOOLS_BUILD}" -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX="${env:QTTOOLS_INSTALL}" `
+            -DCMAKE_PREFIX_PATH="${env:QTBASE_INSTALL}" `
+            -DQT_BUILD_EXAMPLES=OFF `
+            -DQT_BUILD_TESTS=OFF
+          cmake --build "${env:QTTOOLS_BUILD}" --parallel
+          cmake --install "${env:QTTOOLS_BUILD}"
+
+      - name: Setup PATH for Qt tools
+        shell: pwsh
+        run: |
+          echo "${env:QTBASE_INSTALL}\bin"  | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${env:QTTOOLS_INSTALL}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          where windeployqt
+
+      # ---------- vcpkg (правильный action) ----------
+      - name: Setup vcpkg
+        uses: friendlyanon/setup-vcpkg@v1
+        with:
+          # можно зафиксировать ревизию vcpkg: committish: 2025-08-01
+          committish: master
+
+      - name: Cache vcpkg binary artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\vcpkg\archives
+            ~\AppData\Local\vcpkg\packages
+          key: vcpkg-bincache-${{ runner.os }}-x64-1
+
+      - name: Install PoDoFo dependencies via vcpkg
+        shell: pwsh
+        run: |
+          $vcpkg = "${{ github.workspace }}\vcpkg\vcpkg.exe"
+          & $vcpkg version
+          # Библиотеки, которые обычно требуются PoDoFo:
+          & $vcpkg install fontconfig:x64-windows freetype:x64-windows libxml2:x64-windows openssl:x64-windows libjpeg-turbo:x64-windows libpng:x64-windows tiff:x64-windows zlib:x64-windows          
+
+      # ---------- PoDoFo из исходников ----------
+      - name: Cache PoDoFo install
+        id: cache-podofo
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PODOFO_INSTALL }}
+          key: podofo-${{ runner.os }}-x64-src-1
+
+      - name: Checkout PoDoFo sources
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: podofo/podofo
+          path: dependencies/podofo
+          # ref: v0.10.3 # при желании закрепи версию
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Build & Install PoDoFo (from source, vcpkg toolchain)
+        if: steps.cache-podofo.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          cmake -S "${env:PODOFO_SRC}" -B "${env:PODOFO_BUILD}" -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX="${env:PODOFO_INSTALL}" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DBUILD_SHARED_LIBS=ON `
+            -DPODOFO_BUILD_EXAMPLES=OFF `
+            -DPODOFO_BUILD_TOOLS=OFF
+          cmake --build  "${env:PODOFO_BUILD}" --parallel
+          cmake --install "${env:PODOFO_BUILD}"
+
+      - name: Configure (CMake)
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="${env:QTBASE_INSTALL};${env:PODOFO_INSTALL}" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"
+
+      - name: Build (CMake)
+        shell: pwsh
+        run: cmake --build build --parallel
+
+      # ---------- Упаковка ----------
+      - name: Package (windeployqt + zip)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $exe = Join-Path "build" "${env:APP_NAME}.exe"
+          if (-not (Test-Path $exe)) {
+            $exe = Join-Path "build/Release" "${env:APP_NAME}.exe"
+          }
+          if (-not (Test-Path $exe)) { throw "Executable not found: $exe" }
+
+          $stage = "dist/${env:APP_NAME}-windows-x64"
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item $exe $stage/
+
+          # Qt runtime
+          windeployqt --release --compiler-runtime "$stage\${env:APP_NAME}.exe"
+
+          # DLL PoDoFo (если сборка shared)
+          $podofoBin = "${env:PODOFO_INSTALL}\bin"
+          if (Test-Path $podofoBin) { Copy-Item "$podofoBin\*.dll" $stage -ErrorAction SilentlyContinue }
+          $podofoLib = "${env:PODOFO_INSTALL}\lib"
+          if (Test-Path $podofoLib) { Copy-Item "$podofoLib\*.dll" $stage -ErrorAction SilentlyContinue }
+
+          $triplet = "x64-windows"
+          $binDir = "${{ env.VCPKG_ROOT }}\installed\$triplet\bin"
+          $patterns = @(
+            "fontconfig-1.dll",
+            "libxml2.dll",
+            "libcrypto-3-x64.dll", "libssl-3-x64.dll",
+            "liblzma*.dll",
+            "libexpat*.dll",
+            "bz2*.dll",
+            "tiff*.dll", "libtiff*.dll",
+            "zlib*.dll", "libpng*.dll", "jpeg*.dll", "libjpeg*.dll",
+            "freetype*.dll", "brotli*.dll", "lzma*.dll", "iconv*.dll",
+            "openjpeg*.dll", "podofo*.dll", "ssl*.dll", "crypto*.dll"
+          )                    
+
+          foreach ($p in $patterns) {
+            Get-ChildItem -Path (Join-Path $binDir $p) -ErrorAction SilentlyContinue | `
+            Copy-Item -Destination $stage -Force
+          }          
+
+          # Дополнительно: MSVC runtime (если windeployqt не подхватит)
+          & where vcruntime140.dll  | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
+          & where vcruntime140_1.dll| ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }
+          & where msvcp140.dll      | ForEach-Object { Copy-Item $_ $stage -ErrorAction SilentlyContinue }                             
+
+      - name: Add MSVC runtime (app-local)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $stage = "dist/${env:APP_NAME}-windows-x64"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          $copied = $false
+
+          # 1) Пробуем через переменную окружения (после ilammy/msvc-dev-cmd@v1 она есть)
+          if ($env:VCToolsRedistDir) {
+            $cand = Join-Path $env:VCToolsRedistDir "x64"
+            $crtDirs = Get-ChildItem $cand -Directory -Filter "Microsoft.VC*.CRT" -ErrorAction SilentlyContinue |
+                       Sort-Object Name -Descending
+            if ($crtDirs) {
+              Copy-Item (Join-Path $crtDirs[0].FullName "*.dll") $stage -Force
+              Write-Host "CRT copied from $($crtDirs[0].FullName)"
+              $copied = $true
+            }
+          }
+
+          # 2) Фоллбэк: ищем установленную VS и самый свежий Redist
+          if (-not $copied) {
+            $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+            $vs = & $vswhere -latest -products * `
+                 -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+                 -property installationPath
+            if (-not $vs) { throw "Visual Studio not found" }
+
+            $redistRoot = Join-Path $vs "VC\Redist\MSVC"
+            $verDir = Get-ChildItem $redistRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
+            if (-not $verDir) { throw "MSVC Redist dir not found under $redistRoot" }
+
+            $crtParent = Join-Path $verDir.FullName "x64"
+            $vcDir = Get-ChildItem $crtParent -Directory -Filter "Microsoft.VC*.CRT" |
+                     Sort-Object Name -Descending | Select-Object -First 1
+            if (-not $vcDir) { throw "Microsoft.VC*.CRT not found under $crtParent" }
+
+            Copy-Item (Join-Path $vcDir.FullName "*.dll") $stage -Force
+            Write-Host "CRT copied from $($vcDir.FullName)"
+          }
+
+          # (опционально) скопировать UCRT (полезно для очень чистых машин)
+          $ucrt = "C:\Program Files (x86)\Windows Kits\10\Redist\ucrt\DLLs\x64"
+          if (Test-Path $ucrt) {
+            Copy-Item (Join-Path $ucrt "*.dll") $stage -Force
+            Write-Host "UCRT copied from $ucrt"
+          }
+
+          Remove-Item -Force $stage\vc_redist.x64.exe    
+          Remove-Item -Force $stage\dxil.dll    
+          Remove-Item -Force $stage\dxcompiler.dll    
+          Remove-Item -Force $stage\d3dcompiler_47.dll                  
+
+          Get-ChildItem $stage -File -Filter api-ms-*.dll | Remove-Item -Force
+
+          # Быстрая проверка, что нужные DLL на месте
+          Get-ChildItem $stage | Format-Table Name,Length                  
+
+      - name: Upload artifact (ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-windows-x64
+          path: dist/${{ env.APP_NAME }}-windows-x64
+          if-no-files-found: error
+          retention-days: 14
